@@ -1,0 +1,17 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "qris-dynamic"
+version = "0.2.0"
+description = "QRIS static->dynamic converter: library + HTTP API dengan API key (stdlib only)"
+readme = "README.md"
+requires-python = ">=3.9"
+license = {text = "Proprietary"}
+
+[project.scripts]
+qris-server = "qris.server:main"
+
+[tool.setuptools]
+packages = ["qris"]

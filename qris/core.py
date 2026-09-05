@@ -1,23 +1,12 @@
-#!/usr/bin/env python3
-"""QRIS static->dynamic converter + HTTP API. Stdlib only.
+"""Inti konversi QRIS static->dynamic. Murni stdlib, tanpa dependency.
 
-Jalankan:
-  python3 qris_api.py            # serve di HOST:PORT (default 127.0.0.1:8000)
-  python3 qris_api.py --test     # self-check
-
-Endpoint:
-  POST /convert {"qr": "<string QRIS>", "amount": 15750, "fee": {"type":"fixed|percent","value":...}}
-  POST /parse   {"qr": "<string QRIS>"}
-Logika identik verssache/qris-dinamis: drop 54/55/56/57/63, tag 01 -> "12",
-sisip 53(bila absen)+54(+fee 55/56 atau 55/57) sebelum 58, CRC16-CCITT-FALSE.
+convert(qr, amount, fee) -> payload dinamis baru (string)
+parse(qr) -> [(tag, value), ...] top-level, CRC tervalidasi
+crc16(s) -> CRC-16/CCITT-FALSE (init 0xFFFF, poly 0x1021), hex uppercase
+generate_api_key() -> (key, sha256hex) untuk server/API access
 """
-import json
-import os
-import sys
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-
-HOST = os.environ.get("HOST", "127.0.0.1")
-PORT = int(os.environ.get("PORT", "8000"))
+import hashlib
+import secrets
 
 NAMES = {
     "00": "Payload Format Indicator", "01": "Point of Initiation Method",
@@ -133,66 +122,14 @@ def convert(qr: str, amount, fee=None) -> str:
     return s + crc16(s)
 
 
-class Handler(BaseHTTPRequestHandler):
-    protocol_version = "HTTP/1.1"
-
-    def _json(self, code, obj):
-        data = json.dumps(obj).encode()
-        self.send_response(code)
-        self.send_header("Content-Type", "application/json; charset=utf-8")
-        self.send_header("Access-Control-Allow-Origin", "*")
-        self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-        self.send_header("Access-Control-Allow-Headers", "Content-Type")
-        self.send_header("Content-Length", str(len(data)))
-        self.end_headers()
-        self.wfile.write(data)
-
-    def do_OPTIONS(self):
-        self.send_response(204)
-        self.send_header("Access-Control-Allow-Origin", "*")
-        self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-        self.send_header("Access-Control-Allow-Headers", "Content-Type")
-        self.end_headers()
-
-    def do_GET(self):
-        path = self.path.split("?")[0]
-        if path in ("/", "/health"):
-            self._json(200, {"ok": True, "service": "qris-static2dynamic",
-                             "endpoints": ["POST /convert", "POST /parse"],
-                             "example": {"qr": "<string QRIS mulai 000201>", "amount": 15750,
-                                         "fee": {"type": "fixed", "value": 500}}})
-        else:
-            self._json(404, {"ok": False, "error": "not found"})
-
-    def do_POST(self):
-        path = self.path.split("?")[0]
-        if path not in ("/convert", "/parse"):
-            self._json(404, {"ok": False, "error": "not found"})
-            return
-        n = int(self.headers.get("Content-Length") or 0)
-        if n > 8192:
-            self._json(413, {"ok": False, "error": "body terlalu besar (max 8KB)"})
-            return
-        try:
-            req = json.loads(self.rfile.read(n) or b"{}")
-        except json.JSONDecodeError:
-            self._json(400, {"ok": False, "error": "JSON tidak valid"})
-            return
-        try:
-            if path == "/parse":
-                self._json(200, {"ok": True, "data": {"tags": [
-                    {"tag": t, "name": NAMES.get(t), "value": v} for t, v in parse(req.get("qr"))]}})
-            else:
-                self._json(200, {"ok": True, "data": {
-                    "payload": convert(req.get("qr"), req.get("amount"), req.get("fee"))}})
-        except ValueError as e:
-            self._json(400, {"ok": False, "error": str(e)})
-
-    def log_message(self, *a):
-        pass
+def generate_api_key():
+    """Return (key, sha256hex). Key mentah hanya tampil sekali ke operator;
+    yang disimpan/dipakai di server hanya hash-nya."""
+    key = "qris_" + secrets.token_hex(24)
+    return key, hashlib.sha256(key.encode("utf-8")).hexdigest()
 
 
-def _selftest():
+def selftest():
     assert crc16("123456789") == "29B1", "CRC-16/CCITT-FALSE vector gagal"
     body = "".join(_tlv(t, v) for t, v in [
         ("00", "01"), ("01", "11"),
@@ -224,12 +161,7 @@ def _selftest():
             raise AssertionError("error input lolos validasi")
         except ValueError:
             pass
+
+    key, h = generate_api_key()
+    assert key.startswith("qris_") and len(h) == 64
     print("SELF-TEST PASS")
-
-
-if __name__ == "__main__":
-    if "--test" in sys.argv:
-        _selftest()
-    else:
-        print(f"qris api on {HOST}:{PORT}")
-        ThreadingHTTPServer((HOST, PORT), Handler).serve_forever()

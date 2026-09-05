@@ -1,6 +1,8 @@
 # qris-dynamic
 
-QRIS static → dynamic converter: **package Python** (library) + **HTTP API server** dengan API key. Murni stdlib, 0 dependency, Python ≥3.9.
+QRIS static → dynamic converter: **package Python** (library) + **HTTP API server**. Murni stdlib, 0 dependency, Python ≥3.9. Distribusi gratis; API key opsional, **default OFF**.
+
+Dokumen integrasi lengkap (kontrak API, contoh JS/Python, deploy, troubleshooting): [HANDOFF.md](HANDOFF.md)
 
 ## Cara kerja
 
@@ -8,13 +10,13 @@ Parse TLV EMVCo → buang tag `54/55/56/57/63` → tag `01` jadi `12` (dynamic) 
 
 > Modifikasi string lokal, bukan dynamic QRIS sesungguhnya (tanpa NMID dinamis / callback acquirer). Nominal pre-fill diterima atau tidak tergantung app pembayaran.
 
-## Install (repo private)
+## Install
 
 ```bash
 pip install "qris-dynamic @ git+https://github.com/himsa/qris-api.git"
 ```
 
-Customer yang diundang ke repo private bisa install langsung. Alternatif distribusi nanti: PyPI private / GitHub Packages.
+Repo saat ini private — yang punya akses (diundang) bisa install langsung. Bisa dibuka publik / ke PyPI nanti.
 
 ## Sebagai library di project
 
@@ -37,9 +39,9 @@ python -m qris.server            # atau: qris-server (entry point)
 # env: QRIS_HOST (default 127.0.0.1), QRIS_PORT (8000)
 ```
 
-Tanpa `QRIS_API_KEYS` = mode terbuka (dev lokal saja).
+Default **tanpa API key** — semua request lolos tanpa header. Aktifkan hanya kalau butuh.
 
-### API key (buat jual akses)
+### API key (opsional, default OFF)
 
 ```bash
 python -m qris.server --gen-key
@@ -69,7 +71,7 @@ curl -X POST http://127.0.0.1:8000/parse -H 'X-API-Key: qris_...' \
 
 CORS terbuka — render QR di client (mis. qrcode.js). Error balik 400 + `{"ok":false,"error":"..."}`.
 
-## Model jual (catatan)
+## Status & catatan
 
-1. **Library offline**: logika jalan di project pembeli, key cuma bisa jadi license key — enforcement lemah (bisa di-strip). Realistis: jual akses repo private / lisensi berbayar + EULA.
-2. **Hosted API** (rekomendasi untuk recurring): key per customer, rate limit per key = tier harga, usage log = dasar billing. Jangan bangun billing sendiri — pakai API gateway (Kong/Cloudflare Workers) atau marketplace (RapidAPI) yang sudah urus key+subscription.
+- Gratis, belum di-host. Infra API key + rate limit sudah siap tapi default OFF — tinggal isi `QRIS_API_KEYS` kalau nanti butuh.
+- Kalau suatu saat mau jual akses: hosted API, rate limit per key = tier harga, billing via RapidAPI/API gateway (jangan dibikin sendiri).

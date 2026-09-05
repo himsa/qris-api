@@ -16,7 +16,7 @@ Parse TLV EMVCo → buang tag `54/55/56/57/63` → tag `01` jadi `12` (dynamic) 
 pip install "qris-dynamic @ git+https://github.com/himsa/qris-api.git"
 ```
 
-Repo saat ini private — yang punya akses (diundang) bisa install langsung. Bisa dibuka publik / ke PyPI nanti.
+Repo publik — install langsung tanpa perlu undangan. PyPI menyusul kalau perlu.
 
 ## Sebagai library di project
 
@@ -73,5 +73,5 @@ CORS terbuka — render QR di client (mis. qrcode.js). Error balik 400 + `{"ok":
 
 ## Status & catatan
 
-- Gratis, belum di-host. Infra API key + rate limit sudah siap tapi default OFF — tinggal isi `QRIS_API_KEYS` kalau nanti butuh.
+- Gratis, open (MIT — lihat [LICENSE](LICENSE)), belum di-host. Infra API key + rate limit sudah siap tapi default OFF — tinggal isi `QRIS_API_KEYS` kalau nanti butuh.
 - Kalau suatu saat mau jual akses: hosted API, rate limit per key = tier harga, billing via RapidAPI/API gateway (jangan dibikin sendiri).
